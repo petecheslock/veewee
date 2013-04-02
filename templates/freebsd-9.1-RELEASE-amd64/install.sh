@@ -1,14 +1,19 @@
-#!/bin/sh -x
+#!/bin/sh -xe
 
 # Credit: http://www.aisecure.net/2011/05/01/root-on-zfs-freebsd-current/
 
 NAME=$1
 
+DISK_DEV=ada0
+BOOTPMBR_FILE=/boot/pmbr
+BOOTCODE_FILE=/boot/gptzfsboot
+DIST_DIR=/usr/freebsd-dist
+
 # create disks
-gpart create -s gpt ada0
-gpart add -b 34 -s 94 -t freebsd-boot ada0
-gpart add -t freebsd-zfs -l disk0 ada0
-gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ada0
+gpart create -s gpt ${DISK_DEV}
+gpart add -b 34 -s 94 -t freebsd-boot ${DISK_DEV}
+gpart add -t freebsd-zfs -l disk0 ${DISK_DEV}
+gpart bootcode -b ${BOOTPMBR_FILE} -p ${BOOTCODE_FILE} -i 1 ${DISK_DEV}
 
 # align disks
 gnop create -S 4096 /dev/gpt/disk0
@@ -38,25 +43,26 @@ zfs create -o compression=gzip -o exec=off -o setuid=off zroot/var/mail
 zfs create                     -o exec=off -o setuid=off zroot/var/run
 zfs create -o compression=lzjb -o exec=on  -o setuid=off zroot/var/tmp
 
-# fixup
+# fixup                                                                                                                                                                                                                                                                                                                             [67/493]
 chmod 1777 /mnt/tmp
 cd /mnt ; ln -s usr/home home
 sleep 10
 chmod 1777 /mnt/var/tmp
+
+# Install the OS
+cd /usr/freebsd-dist
+cat base.txz | tar --unlink -xpJf - -C /mnt
+cat kernel.txz | tar --unlink -xpJf - -C /mnt
+cat src.txz | tar --unlink -xpJf - -C /mnt
+cat lib32.txz | tar --unlink -xpJf - -C /mnt
 
 # set up swap
 zfs create -V 2G zroot/swap
 zfs set org.freebsd:swap=on zroot/swap
 zfs set checksum=off zroot/swap
 
-# Install the OS
-cd /usr/freebsd-dist
-cat base.txz | tar --unlink -xpJf - -C /mnt
-cat lib32.txz | tar --unlink -xpJf - -C /mnt
-cat kernel.txz | tar --unlink -xpJf - -C /mnt
-cat src.txz | tar --unlink -xpJf - -C /mnt
-
-cp /tmp/zpool.cache /mnt/boot/zfs/zpool.cache
+mkdir -p /mnt/boot/zfs/
+cp /tmp/zpool.cache /mnt/boot/zfs/zpool.cache                                                                                                                                                                                                                                                                                       [35/493]
 
 sleep 10
 # Enable required services
@@ -68,12 +74,17 @@ sshd_enable="YES"
 EOT
 
 # Tune and boot from zfs
+# 64-bit platform tuning for performance on low-mem instances.
+KMEMSIZE="200M"
+KMEMMAX="200M"
+ARCMAX="40M"
+
 cat >> /mnt/boot/loader.conf << EOT
 zfs_load="YES"
 vfs.root.mountfrom="zfs:zroot"
-vm.kmem_size="200M"
-vm.kmem_size_max="200M"
-vfs.zfs.arc_max="40M"
+vm.kmem_size="${KMEMSIZE}"
+vm.kmem_size_max="${KMEMMAX}"
+vfs.zfs.arc_max="${ARCMAX}"
 vfs.zfs.vdev.cache.size="5M"
 EOT
 
@@ -81,15 +92,24 @@ EOT
 echo '/dev/gpt/swap0 none swap sw 0 0' > /mnt/etc/fstab
 
 # Install a few requirements
-echo 'nameserver 8.8.8.8' > /mnt/etc/resolv.conf
+export PACKAGESITE="http://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-${MAJOR_VER}-stable/Latest/"
+pkg_add -C /mnt -r bash-static || /usr/bin/true
+(
+  cd /mnt/bin
+  ln -s /usr/local/bin/bash bash
+  pkg_add -C /mnt -r sudo || /usr/bin/true
+  echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /mnt/usr/local/etc/sudoers
+  rm /mnt/etc/resolv.conf
+)
 
 # Set up user accounts
 zfs create zroot/usr/home/vagrant
-echo "vagrant" | pw -V /mnt/etc useradd vagrant -h 0 -s csh -G wheel -d /home/vagrant -c "Vagrant User"
-echo "vagrant" | pw -V /mnt/etc usermod root
+chroot /mnt /bin/sh -c 'echo "vagrant" | pw useradd vagrant -h 0 -s /bin/csh -G wheel -d /home/vagrant -c "Vagrant User"'
+chroot /mnt /bin/sh -c 'echo "vagrant" | pw usermod root'
+chroot /mnt /bin/sh -c 'chown 1001:1001 /home/vagrant'
 
-chown 1001:1001 /mnt/home/vagrant
+# unmount zfs
+zfs unmount -f zroot
 
 # Reboot
 reboot
-

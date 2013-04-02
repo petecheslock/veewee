@@ -1,5 +1,5 @@
 Veewee::Definition.declare({
-  :cpu_count => '1', :memory_size=> '512',
+  :cpu_count => '1', :memory_size=> '1024',
   :disk_size => '10140', :disk_format => 'VDI', :hostiocache => 'off',
   :os_type_id => 'FreeBSD_64',
   :iso_file => "FreeBSD-9.1-RELEASE-amd64-disc1.iso",
@@ -19,14 +19,23 @@ Veewee::Definition.declare({
     'mdmfs -s 100m md1 /tmp<Enter>',
     'dhclient -l /tmp/dhclient.lease.em0 em0<Enter>',
     '<Wait><Wait><Wait>',
-    'echo "Sleeping for 10 seconds, then running install script."<Enter>',
     'sleep 10 ; fetch -o /tmp/install.sh http://%IP%:%PORT%/install.sh && chmod +x /tmp/install.sh && /tmp/install.sh %NAME%<Enter>'
   ],
   :kickstart_port => "7122", :kickstart_timeout => "10000", :kickstart_file => "install.sh",
   :ssh_login_timeout => "10000", :ssh_user => "vagrant", :ssh_password => "vagrant", :ssh_key => "",
   :ssh_host_port => "7222", :ssh_guest_port => "22",
   :sudo_cmd => "cat '%f' | su -",
-  :shutdown_cmd => "shutdown -h now",
-  :postinstall_files => [ "postinstall.sh"], :postinstall_timeout => "10000"
+  :shutdown_cmd => "shutdown -p -o now",
+  :postinstall_files => [
+    "base.sh",
+    "vagrant.sh",
+    "virtualbox.sh",
+    "vmfusion.sh",
+    "ruby.sh",
+    "puppet.sh",
+    "chef.sh",
+    "cleanup.sh",
+    "zerodisk.sh"
+  ],
+  :postinstall_timeout => "10000"
 })
-#'setkmap=us dodhcp=eth0 dhcphostname=%NAME% ar_source=http://%IP%:%PORT%/ autoruns=0 rootpass=vagrant',
