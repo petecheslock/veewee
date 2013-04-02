@@ -43,11 +43,16 @@ zfs create -o compression=gzip -o exec=off -o setuid=off zroot/var/mail
 zfs create                     -o exec=off -o setuid=off zroot/var/run
 zfs create -o compression=lzjb -o exec=on  -o setuid=off zroot/var/tmp
 
-# fixup                                                                                                                                                                                                                                                                                                                             [67/493]
+# fixup ]
 chmod 1777 /mnt/tmp
 cd /mnt ; ln -s usr/home home
 sleep 10
 chmod 1777 /mnt/var/tmp
+
+# set up swap
+zfs create -V 2G zroot/swap
+zfs set org.freebsd:swap=on zroot/swap
+zfs set checksum=off zroot/swap
 
 # Install the OS
 cd /usr/freebsd-dist
@@ -56,13 +61,7 @@ cat kernel.txz | tar --unlink -xpJf - -C /mnt
 cat src.txz | tar --unlink -xpJf - -C /mnt
 cat lib32.txz | tar --unlink -xpJf - -C /mnt
 
-# set up swap
-zfs create -V 2G zroot/swap
-zfs set org.freebsd:swap=on zroot/swap
-zfs set checksum=off zroot/swap
-
-mkdir -p /mnt/boot/zfs/
-cp /tmp/zpool.cache /mnt/boot/zfs/zpool.cache                                                                                                                                                                                                                                                                                       [35/493]
+cp /tmp/zpool.cache /mnt/boot/zfs/zpool.cache
 
 sleep 10
 # Enable required services
