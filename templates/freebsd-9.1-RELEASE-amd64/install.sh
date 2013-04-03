@@ -91,7 +91,8 @@ EOT
 echo '/dev/gpt/swap0 none swap sw 0 0' > /mnt/etc/fstab
 
 # Install a few requirements
-export PACKAGESITE="http://ftp.freebsd.org/pub/FreeBSD/ports/${ARCH}/packages-${MAJOR_VER}-stable/Latest/"
+echo 'nameserver 8.8.8.8' > /mnt/etc/resolv.conf
+export PACKAGESITE="http://ftp.freebsd.org/pub/FreeBSD/ports/amd64/packages-9-stable/Latest/"
 pkg_add -C /mnt -r bash-static || /usr/bin/true
 (
   cd /mnt/bin
